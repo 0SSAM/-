@@ -1,0 +1,2725 @@
+تطبيق "صيدليات الشوا" هو تطبيق أندرويد متكامل مبني باستخدام Jetpack Compose و Material 3، يتيح للمستخدمين استعراض المنتجات الدوائية والتجميلية والطبية ومستلزمات الأم والطفل. يوفر التطبيق ميزات لطلب الاستشارات الدوائية، متابعة الطلبات، وتقديم الشكاوى والاقتراحات، مع إمكانية التواصل المباشر عبر WhatsApp أو المكالمات. يتميز التطبيق بتصميم عصري وأداء سلس، مع التركيز على الأمان وحماية البيانات من خلال استخدام أفضل الممارسات في تطوير تطبيقات أندرويد.
+
+AlShawwaPharmaciesApp
+├── build.gradle.kts (Project)
+├── settings.gradle.kts
+└── app
+    ├── build.gradle.kts (Module)
+    ├── src
+        ├── main
+            ├── AndroidManifest.xml
+            ├── java
+            │   └── com
+            │       └── alshawwa
+            │           └── pharmacies
+            │               ├── AlShawwaPharmaciesApp.kt
+            │               ├── data
+            │               │   ├── api
+            │               │   │   ├── UnsplashApiService.kt
+            │               │   │   └── models
+            │               │   │       └── UnsplashSearchResponse.kt
+            │               │   ├── database
+            │               │   │   ├── AppDatabase.kt
+            │               │   │   ├── dao
+            │               │   │   │   └── ProductDao.kt
+            │               │   │   └── entities
+            │               │   │       └── ProductEntity.kt
+            │               │   ├── repository
+            │               │   │   └── ProductRepository.kt
+            │               │   └── util
+            │               │       └── Constants.kt
+            │               ├── di
+            │               │   ├── AppModule.kt
+            │               │   ├── DatabaseModule.kt
+            │               │   └── NetworkModule.kt
+            │               ├── domain
+            │               │   └── model
+            │               │       └── Product.kt
+            │               ├── ui
+            │               │   ├── navigation
+            │               │   │   ├── Screen.kt
+            │               │   │   └── AlShawwaNavGraph.kt
+            │               │   ├── screens
+            │               │   │   ├── addproduct
+            │               │   │   │   ├── AddProductScreen.kt
+            │               │   │   │   └── AddProductViewModel.kt
+            │               │   │   ├── complaints
+            │               │   │   │   ├── ComplaintsSuggestionsScreen.kt
+            │               │   │   │   └── ComplaintsSuggestionsViewModel.kt
+            │               │   │   ├── consultation
+            │               │   │   │   ├── ConsultationScreen.kt
+            │               │   │   │   └── ConsultationViewModel.kt
+            │               │   │   ├── home
+            │               │   │   │   ├── HomeScreen.kt
+            │               │   │   │   └── HomeViewModel.kt
+            │               │   │   ├── productdetail
+            │               │   │   │   ├── ProductDetailScreen.kt
+            │               │   │   │   └── ProductDetailViewModel.kt
+            │               │   │   ├── trackorders
+            │               │   │   │   ├── TrackOrdersScreen.kt
+            │               │   │   │   └── TrackOrdersViewModel.kt
+            │               │   │   └── common
+            │               │   │       └── ContactCard.kt
+            │               │   ├── theme
+            │               │   │   ├── Color.kt
+            │               │   │   ├── Theme.kt
+            │               │   │   └── Type.kt
+            │               │   └── MainActivity.kt
+            │               └── util
+            │                   └── UiEvent.kt
+            └── res
+                ├── drawable
+                │   └── iclauncherforeground.xml
+                ├── mipmap-anydpi-v26
+                │   ├── ic_launcher.xml
+                │   └── iclauncherround.xml
+                ├── values
+                │   ├── colors.xml
+                │   ├── strings.xml
+                │   └── themes.xml
+                └── values-night
+                    └── themes.xml
+build.gradle.kts (Project)
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+plugins {
+    alias(libs.plugins.androidApplication) apply false
+    alias(libs.plugins.androidLibrary) apply false
+    alias(libs.plugins.kotlinAndroid) apply false
+    alias(libs.plugins.kotlinSerialization) apply false
+    alias(libs.plugins.ksp) apply false // Kotlin Symbol Processing (KSP) for Room, Hilt
+    alias(libs.plugins.daggerHiltAndroid) apply false
+}
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        // Hilt classpath dependency
+        classpath(libs.hilt.android.gradle.plugin)
+    }
+}
+app/build.gradle.kts (Module)
+plugins {
+    alias(libs.plugins.androidApplication)
+    alias(libs.plugins.kotlinAndroid)
+    alias(libs.plugins.kotlinSerialization)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.daggerHiltAndroid)
+}
+
+android {
+    namespace = "com.alshawwa.pharmacies"
+    compileSdk = 34
+
+    defaultConfig {
+        applicationId = "com.alshawwa.pharmacies"
+        minSdk = 26
+        targetSdk = 34
+        versionCode = 1
+        versionName = "1.0"
+
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        vectorDrawables {
+            useSupportLibrary = true
+        }
+
+        // Access API key from local.properties or environment variables
+        // For security in production, this key should be proxied through a backend service.
+        // For development/demo, it can be added to local.properties as:
+        // UNSPLASHACCESSKEY="YOURUNSPLASHACCESS_KEY"
+        buildConfigField("String", "UNSPLASHACCESSKEY", "\"${project.findProperty("UNSPLASHACCESSKEY") ?: ""}\"")
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION18
+        targetCompatibility = JavaVersion.VERSION18
+    }
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
+    buildFeatures {
+        compose = true
+        buildConfig = true // Enable BuildConfig
+    }
+    composeOptions {
+        kotlinCompilerExtensionVersion = libs.versions.androidxComposeCompiler.get()
+    }
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
+}
+
+dependencies {
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.activity.compose)
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.ui)
+    implementation(libs.androidx.ui.graphics)
+    implementation(libs.androidx.ui.tooling.preview)
+    implementation(libs.androidx.material3)
+
+    // Navigation Compose
+    implementation(libs.androidx.navigation.compose)
+
+    // Dagger Hilt
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler)
+    implementation(libs.androidx.hilt.navigation.compose)
+
+    // Room Database
+    implementation(libs.androidx.room.runtime)
+    implementation(libs.androidx.room.ktx)
+    ksp(libs.androidx.room.compiler)
+
+    // Retrofit for networking
+    implementation(libs.retrofit)
+    implementation(libs.okhttp)
+    implementation(libs.converter.kotlinx.serialization) // For KotlinX Serialization with Retrofit
+    implementation(libs.kotlinx.serialization.json) // KotlinX Serialization
+
+    // Coil for image loading
+    implementation(libs.coil.compose)
+
+    // Coroutines
+    implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.kotlinx.coroutines.core)
+
+    testImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.espresso.core)
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.ui.test.junit4)
+    debugImplementation(libs.androidx.ui.tooling)
+    debugImplementation(libs.androidx.ui.test.manifest)
+}
+libs.versions.toml
+[versions]
+AndroidX
+androidxCoreKtx = "1.12.0"
+androidxLifecycleRuntimeKtx = "2.6.2"
+androidxActivityCompose = "1.8.1"
+androidxComposeBom = "2023.08.00"
+androidxComposeCompiler = "1.5.8" # Ensure this matches your AGP and Kotlin version
+androidxNavigationCompose = "2.7.5"
+androidxHiltNavigationCompose = "1.1.0"
+Dagger Hilt
+hiltAndroid = "2.48"
+hiltCompiler = "2.48"
+Room Database
+androidxRoomRuntime = "2.6.1"
+androidxRoomKtx = "2.6.1"
+androidxRoomCompiler = "2.6.1"
+Networking - Retrofit, OkHttp, KotlinX Serialization
+retrofit = "2.9.0"
+okhttp = "4.12.0"
+converterKotlinxSerialization = "1.0.0" # A separate library for kotlinx.serialization with Retrofit
+kotlinxSerializationJson = "1.6.0"
+Coil for image loading
+coilCompose = "2.5.0"
+Coroutines
+kotlinxCoroutinesAndroid = "1.7.3"
+kotlinxCoroutinesCore = "1.7.3"
+Testing
+junit = "4.13.2"
+androidxJunit = "1.1.5"
+androidxEspressoCore = "3.5.1"
+Plugins
+androidApplication = "8.2.0"
+androidLibrary = "8.2.0"
+kotlinAndroid = "1.9.0" # Ensure this matches your project's Kotlin version
+kotlinSerialization = "1.9.0"
+ksp = "1.9.0-1.0.13" # KSP for the Kotlin version
+daggerHiltAndroid = "2.48"
+
+[libraries]
+AndroidX
+androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "androidxCoreKtx" }
+androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "androidxLifecycleRuntimeKtx" }
+androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "androidxActivityCompose" }
+androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "androidxComposeBom" }
+androidx-ui = { group = "androidx.compose.ui", name = "ui" }
+androidx-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
+androidx-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
+androidx-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
+androidx-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
+androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
+androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
+androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "androidxNavigationCompose" }
+androidx-hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-compose", version.ref = "androidxHiltNavigationCompose" }
+Dagger Hilt
+hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hiltAndroid" }
+hilt-compiler = { group = "com.google.dagger", name = "hilt-compiler", version.ref = "hiltCompiler" }
+Room Database
+androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "androidxRoomRuntime" }
+androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "androidxRoomKtx" }
+androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "androidxRoomCompiler" }
+Networking
+retrofit = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit" }
+okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
+converter-kotlinx-serialization = { group = "com.jakewharton.retrofit", name = "retrofit2-kotlinx-serialization-converter", version.ref = "converterKotlinxSerialization" }
+kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerializationJson" }
+Coil
+coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coilCompose" }
+Coroutines
+kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinxCoroutinesAndroid" }
+kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "kotlinxCoroutinesCore" }
+Testing
+junit = { group = "junit", name = "junit", version.ref = "junit" }
+androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidxJunit" }
+androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "androidxEspressoCore" }
+
+[plugins]
+androidApplication = { id = "com.android.application", version.ref = "androidApplication" }
+androidLibrary = { id = "com.android.library", version.ref = "androidLibrary" }
+kotlinAndroid = { id = "org.jetbrains.kotlin.android", version.ref = "kotlinAndroid" }
+kotlinSerialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlinSerialization" }
+ksp = { id = "com.google.devrel.ksp", version.ref = "ksp" }
+daggerHiltAndroid = { id = "com.google.dagger.hilt.android", version.ref = "daggerHiltAndroid" }
+
+[bundles]
+app/src/main/AndroidManifest.xml
+<?xml version="1.0" encoding="utf-8"?>
+
+    <!-- Permissions for internet access to fetch product images -->
+    
+
+    <!-- Permissions for making phone calls -->
+    
+
+    
+        
+            
+                
+                
+            
+        
+    
+
+app/src/main/java/com/alshawwa/pharmacies/AlShawwaPharmaciesApp.kt
+package com.alshawwa.pharmacies
+
+import android.app.Application
+import dagger.hilt.android.HiltAndroidApp
+
+// نقطة دخول التطبيق لـ Hilt
+@HiltAndroidApp
+class AlShawwaPharmaciesApp : Application() {
+    // يمكن تهيئة خدمات أو مكونات على مستوى التطبيق هنا
+}
+app/src/main/java/com/alshawwa/pharmacies/data/api/UnsplashApiService.kt
+package com.alshawwa.pharmacies.data.api
+
+import com.alshawwa.pharmacies.data.api.models.UnsplashSearchResponse
+import retrofit2.http.GET
+import retrofit2.http.Headers
+import retrofit2.http.Query
+
+// واجهة خدمة Unsplash API لجلب الصور
+interface UnsplashApiService {
+    @Headers("Accept-Version: v1")
+    @GET("search/photos")
+    suspend fun searchPhotos(
+        @Query("query") query: String, // مصطلح البحث عن المنتج
+        @Query("client_id") clientId: String, // مفتاح API الخاص بـ Unsplash
+        @Query("per_page") perPage: Int = 1 // عدد الصور المراد جلبها
+    ): UnsplashSearchResponse
+}
+app/src/main/java/com/alshawwa/pharmacies/data/api/models/UnsplashSearchResponse.kt
+package com.alshawwa.pharmacies.data.api.models
+
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+
+// نموذج بيانات لصور Unsplash
+@Serializable
+data class UnsplashPhoto(
+    @SerialName("id") val id: String,
+    @SerialName("urls") val urls: UnsplashPhotoUrls
+)
+
+// نموذج بيانات لروابط الصور المختلفة
+@Serializable
+data class UnsplashPhotoUrls(
+    @SerialName("raw") val raw: String,
+    @SerialName("full") val full: String,
+    @SerialName("regular") val regular: String,
+    @SerialName("small") val small: String,
+    @SerialName("thumb") val thumb: String
+)
+
+// نموذج بيانات للاستجابة الكاملة من Unsplash API
+@Serializable
+data class UnsplashSearchResponse(
+    @SerialName("total") val total: Int,
+    @SerialName("total_pages") val totalPages: Int,
+    @SerialName("results") val results: List
+)
+app/src/main/java/com/alshawwa/pharmacies/data/database/AppDatabase.kt
+package com.alshawwa.pharmacies.data.database
+
+import androidx.room.Database
+import androidx.room.RoomDatabase
+import com.alshawwa.pharmacies.data.database.dao.ProductDao
+import com.alshawwa.pharmacies.data.database.entities.ProductEntity
+
+// قاعدة بيانات Room للتطبيق
+@Database(
+    entities = [ProductEntity::class],
+    version = 1,
+    exportSchema = false
+)
+abstract class AppDatabase : RoomDatabase() {
+    // واجهة DAO للوصول إلى بيانات المنتجات
+    abstract fun productDao(): ProductDao
+}
+app/src/main/java/com/alshawwa/pharmacies/data/database/dao/ProductDao.kt
+package com.alshawwa.pharmacies.data.database.dao
+
+import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import androidx.room.Query
+import com.alshawwa.pharmacies.data.database.entities.ProductEntity
+import kotlinx.coroutines.flow.Flow
+
+// واجهة الوصول إلى بيانات المنتجات في قاعدة البيانات
+@Dao
+interface ProductDao {
+    // جلب جميع المنتجات من قاعدة البيانات
+    @Query("SELECT * FROM products ORDER BY name ASC")
+    fun getAllProducts(): Flow>
+
+    // جلب المنتجات حسب الفئة
+    @Query("SELECT * FROM products WHERE category = :category ORDER BY name ASC")
+    fun getProductsByCategory(category: String): Flow>
+
+    // إدراج منتج جديد أو تحديث موجود
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertProduct(product: ProductEntity)
+
+    // جلب منتج حسب معرفه
+    @Query("SELECT * FROM products WHERE id = :productId")
+    suspend fun getProductById(productId: Int): ProductEntity?
+
+    // حذف منتج
+    @Query("DELETE FROM products WHERE id = :productId")
+    suspend fun deleteProduct(productId: Int)
+}
+app/src/main/java/com/alshawwa/pharmacies/data/database/entities/ProductEntity.kt
+package com.alshawwa.pharmacies.data.database.entities
+
+import androidx.room.Entity
+import androidx.room.PrimaryKey
+
+// نموذج كيان المنتج لقاعدة بيانات Room
+@Entity(tableName = "products")
+data class ProductEntity(
+    @PrimaryKey(autoGenerate = true)
+    val id: Int = 0,
+    val name: String,
+    val category: String, // (أدوية، تجميل، مستلزمات طبية، أم وطفل)
+    val description: String = "",
+    val imageUrl: String? = null
+)
+app/src/main/java/com/alshawwa/pharmacies/data/repository/ProductRepository.kt
+package com.alshawwa.pharmacies.data.repository
+
+import com.alshawwa.pharmacies.BuildConfig
+import com.alshawwa.pharmacies.data.api.UnsplashApiService
+import com.alshawwa.pharmacies.data.database.dao.ProductDao
+import com.alshawwa.pharmacies.data.database.entities.ProductEntity
+import com.alshawwa.pharmacies.domain.model.Product
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
+import javax.inject.Inject
+import javax.inject.Singleton
+
+// واجهة لتحديد عمليات مستودع المنتجات
+interface ProductRepository {
+    fun getAllProducts(): Flow>
+    fun getkotlin
+package com.alshawwa.pharmacies.data.repository
+
+import com.alshawwa.pharmacies.BuildConfig
+import com.alshawwa.pharmacies.data.api.UnsplashApiService
+import com.alshawwa.pharmacies.data.database.dao.ProductDao
+import com.alshawwa.pharmacies.data.database.entities.ProductEntity
+import com.alshawwa.pharmacies.domain.model.Product
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
+import javax.inject.Inject
+import javax.inject.Singleton
+
+// واجهة لتحديد عمليات مستودع المنتجات
+interface ProductRepository {
+    fun getAllProducts(): Flow>
+    fun getProductsByCategory(category: String): Flow>
+    suspend fun addProduct(product: Product): Result
+    suspend fun getProductById(productId: Int): Product?
+    suspend fun deleteProduct(productId: Int)
+}
+
+// تنفيذ مستودع المنتجات باستخدام Room و Unsplash API
+@Singleton
+class ProductRepositoryImpl @Inject constructor(
+    private val productDao: ProductDao,
+    private val unsplashApiService: UnsplashApiService
+) : ProductRepository {
+
+    // جلب جميع المنتجات وتحويلها من ProductEntity إلى Product
+    override fun getAllProducts(): Flow> {
+        return productDao.getAllProducts().map { entities ->
+            entities.map { it.toDomainModel() }
+        }
+    }
+
+    // جلب المنتجات حسب الفئة وتحويلها من ProductEntity إلى Product
+    override fun getProductsByCategory(category: String): Flow> {
+        return productDao.getProductsByCategory(category).map { entities ->
+            entities.map { it.toDomainModel() }
+        }
+    }
+
+    // إضافة منتج جديد، مع محاولة جلب صورة عالية الدقة من Unsplash إذا لم يتم توفير رابط للصورة
+    override suspend fun addProduct(product: Product): Result = withContext(Dispatchers.IO) {
+        try {
+            var imageUrl: String? = product.imageUrl
+            // إذا لم يكن هناك رابط صورة، حاول جلب واحدة من Unsplash
+            if (imageUrl.isNullOrEmpty()) {
+                val unsplashAccessKey = BuildConfig.UNSPLASHACCESSKEY
+                if (unsplashAccessKey.isNotEmpty()) {
+                    try {
+                        val response = unsplashApiService.searchPhotos(
+                            query = "${product.name} ${product.category}",
+                            clientId = unsplashAccessKey
+                        )
+                        imageUrl = response.results.firstOrNull()?.urls?.regular
+                    } catch (e: Exception) {
+                        // تجاهل الخطأ إذا فشل جلب الصورة، لا يجب أن يمنع إضافة المنتج
+                        e.printStackTrace()
+                        // يمكن تسجيل الخطأ هنا للتحقق لاحقًا
+                    }
+                } else {
+                    // يمكن إظهار تحذير للمطور إذا كان مفتاح API غير موجود
+                    println("Unsplash API key is missing. Cannot fetch product images.")
+                }
+            }
+
+            // إنشاء كيان المنتج وحفظه في قاعدة البيانات
+            val productEntity = product.toEntity(imageUrl)
+            productDao.insertProduct(productEntity)
+            Result.success(Unit)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Result.failure(e)
+        }
+    }
+
+    // جلب منتج حسب معرفه وتحويله إلى Product
+    override suspend fun getProductById(productId: Int): Product? = withContext(Dispatchers.IO) {
+        productDao.getProductById(productId)?.toDomainModel()
+    }
+
+    // حذف منتج من قاعدة البيانات
+    override suspend fun deleteProduct(productId: Int) = withContext(Dispatchers.IO) {
+        productDao.deleteProduct(productId)
+    }
+}
+
+// دوال تحويل بين Product (Domain Model) و ProductEntity (Database Entity)
+fun ProductEntity.toDomainModel(): Product {
+    return Product(
+        id = this.id,
+        name = this.name,
+        category = this.category,
+        description = this.description,
+        imageUrl = this.imageUrl
+    )
+}
+
+fun Product.toEntity(imageUrl: String? = null): ProductEntity {
+    return ProductEntity(
+        id = this.id,
+        name = this.name,
+        category = this.category,
+        description = this.description,
+        imageUrl = imageUrl ?: this.imageUrl
+    )
+}
+app/src/main/java/com/alshawwa/pharmacies/data/util/Constants.kt
+kotlin
+package com.alshawwa.pharmacies.data.util
+
+// ملف يحتوي على الثوابت المستخدمة في التطبيق
+object Constants {
+    // رقم هاتف خدمة العملاء والشكاوى والطلبات
+    const val CUSTOMERSERVICEPHONE = "01015700081"
+    const val CUSTOMERSERVICEWHATSAPP_NUMBER = "+201015700081" // يجب أن يكون بالصيغة الدولية
+
+    // رابط Unsplash API الأساسي
+    const val UNSPLASHBASEURL = "https://api.unsplash.com/"
+
+    // اسم قاعدة بيانات Room
+    const val DATABASENAME = "alshawwapharmaciesdb"
+
+    // فئات المنتجات
+    val PRODUCT_CATEGORIES = listOf(
+        "أدوية",
+        "منتجات تجميل",
+        "مستلزمات طبية",
+        "مستلزمات الأم والطفل"
+    )
+
+    // مفتاح لتمرير معرف المنتج بين الشاشات
+    const val PRODUCTIDARG = "productId"
+}
+app/src/main/java/com/alshawwa/pharmacies/di/AppModule.kt
+kotlin
+package com.alshawwa.pharmacies.di
+
+import com.alshawwa.pharmacies.data.repository.ProductRepository
+import com.alshawwa.pharmacies.data.repository.ProductRepositoryImpl
+import dagger.Binds
+import dagger.Module
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
+import javax.inject.Singleton
+
+// وحدة Dagger Hilt لتوفير الاعتمادات على مستوى التطبيق (Singleton)
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class AppModule {
+
+    // ربط ProductRepositoryImpl بواجهة ProductRepository
+    // هذا يسمح لنا بحقن ProductRepository في الفئات التي تحتاجها، وHilt سيوفر ProductRepositoryImpl
+    @Binds
+    @Singleton
+    abstract fun bindProductRepository(
+        productRepositoryImpl: ProductRepositoryImpl
+package com.alshawwa.pharmacies.di
+
+import com.alshawwa.pharmacies.data.repository.ProductRepository
+import com.alshawwa.pharmacies.data.repository.ProductRepositoryImpl
+import dagger.Binds
+import dagger.Module
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
+import javax.inject.Singleton
+
+// وحدة Dagger Hilt لتوفير الاعتمادات على مستوى التطبيق (Singleton)
+@Module
+@InstallIn(SingletonComponent::class)
+abstract class AppModule {
+
+    // ربط ProductRepositoryImpl بواجهة ProductRepository
+    // هذا يسمح لنا بحقن ProductRepository في الفئات التي تحتاجها، وHilt سيوفر ProductRepositoryImpl
+    @Binds
+    @Singleton
+    abstract fun bindProductRepository(
+        productRepositoryImpl: ProductRepositoryImpl
+    ): ProductRepository
+}
+app/src/main/java/com/alshawwa/pharmacies/di/DatabaseModule.kt
+package com.alshawwa.pharmacies.di
+
+import android.content.Context
+import androidx.room.Room
+import com.alshawwa.pharmacies.data.database.AppDatabase
+import com.alshawwa.pharmacies.data.database.dao.ProductDao
+import com.alshawwa.pharmacies.data.util.Constants
+import dagger.Module
+import dagger.Provides
+import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.hilt.components.SingletonComponent
+import javax.inject.Singleton
+
+// وحدة Dagger Hilt لتوفير اعتمادات قاعدة البيانات
+@Module
+@InstallIn(SingletonComponent::class)
+object DatabaseModule {
+
+    // توفير مثيل لقاعدة البيانات AppDatabase
+    @Provides
+    @Singleton
+    fun provideDatabase(@ApplicationContext context: Context): AppDatabase {
+        return Room.databaseBuilder(
+            context,
+            AppDatabase::class.java,
+            Constants.DATABASE_NAME
+        ).build()
+    }
+
+    // توفير مثيل لـ ProductDao من AppDatabase
+    @Provides
+    @Singleton
+    fun provideProductDao(database: AppDatabase): ProductDao {
+        return database.productDao()
+    }
+}
+app/src/main/java/com/alshawwa/pharmacies/di/NetworkModule.kt
+package com.alshawwa.pharmacies.di
+
+import com.alshawwa.pharmacies.data.api.UnsplashApiService
+import com.alshawwa.pharmacies.data.util.Constants
+import com.jakewharton.retrofit.converter.kotlinx.serialization.asConverterFactory
+import dagger.Module
+import dagger.Provides
+import dagger.hilt.InstallIn
+import dagger.hilt.components.SingletonComponent
+import kotlinx.serialization.json.Json
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import retrofit2.Retrofit
+import java.util.concurrent.TimeUnit
+import javax.inject.Singleton
+
+// وحدة Dagger Hilt لتوفير اعتمادات الشبكة
+@Module
+@InstallIn(SingletonComponent::class)
+object NetworkModule {
+
+    // توفير مثيل لـ Json للتعامل مع التسلسل وإلغاء التسلسل
+    @Provides
+    @Singleton
+    fun provideJson(): Json {
+        return Json {
+            ignoreUnknownKeys = true // تجاهل الحقول غير المعروفة لتجنب الأعطال
+            prettyPrint = true // لتنسيق الخرج بشكل مقروء
+            isLenient = true // للسماح ببعض التنسيقات غير القياسية
+        }
+    }
+
+    // توفير مثيل لـ OkHttpClient للتعامل مع طلبات HTTP
+    @Provides
+    @Singleton
+    fun provideOkHttpClient(): OkHttpClient {
+        return OkHttpClient.Builder()
+            .connectTimeout(30, TimeUnit.SECONDS) // مهلة الاتصال
+            .readTimeout(30, TimeUnit.SECONDS)    // مهلة القراءة
+            .writeTimeout(30, TimeUnit.SECONDS)   // مهلة الكتابة
+            .build()
+    }
+
+    // توفير مثيل لـ Retrofit لإنشاء خدمات API
+    @Provides
+    @Singleton
+    fun provideRetrofit(okHttpClient: OkHttpClient, json: Json): Retrofit {
+        val contentType = "application/json".toMediaType()
+        return Retrofit.Builder()
+            .baseUrl(Constants.UNSPLASHBASEURL) // رابط Unsplash API الأساسي
+            .client(okHttpClient)
+            .addConverterFactory(json.asConverterFactory(contentType)) // استخدام KotlinX Serialization
+            .build()
+    }
+
+    // توفير مثيل لـ UnsplashApiService
+    @Provides
+    @Singleton
+    fun provideUnsplashApiService(retrofit: Retrofit): UnsplashApiService {
+        return retrofit.create(UnsplashApiService::class.java)
+    }
+}
+app/src/main/java/com/alshawwa/pharmacies/domain/model/Product.kt
+package com.alshawwa.pharmacies.domain.model
+
+// نموذج مجال (Domain Model) لتمثيل المنتج
+// هذا النموذج هو تمثيل نظيف للبيانات ولا يعتمد على تفاصيل التنفيذ (مثل Room Entities أو API Models)
+data class Product(
+    val id: Int = 0, // معرف فريد للمنتج، يتم تعيينه بواسطة قاعدة البيانات
+    val name: String,
+    val category: String, // (أدوية، تجميل، مستلزمات طبية، أم وطفل)
+    val description: String = "",
+    val imageUrl: String? = null // رابط الصورة عالية الدقة للمنتج
+)
+app/src/main/java/com/alshawwa/pharmacies/ui/navigation/Screen.kt
+package com.alshawwa.pharmacies.ui.navigation
+
+import com.alshawwa.pharmacies.data.util.Constants
+
+// تعريف مسارات الشاشات في التطبيق
+sealed class Screen(val route: String) {
+    object Home : Screen("home_screen")
+    object AddProduct : Screen("addproductscreen")
+    object ProductDetail : Screen("productdetailscreen/{${Constants.PRODUCTIDARG}}") {
+        // دالة مساعدة لإنشاء المسار مع معرف المنتج
+        fun createRoute(productId: Int) = "productdetailscreen/$productId"
+    }
+    object Consultation : Screen("consultation_screen")
+    object TrackOrders : Screen("trackordersscreen")
+    object ComplaintsSuggestions : Screen("complaintssuggestionsscreen")
+}
+app/src/main/java/com/alshawwa/pharmacies/ui/navigation/AlShawwaNavGraph.kt
+package com.alshawwa.pharmacies.ui.navigation
+
+import androidx.compose.runtime.Composable
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavHostController
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
+import com.alshawwa.pharmacies.data.util.Constants
+import com.alshawwa.pharmacies.ui.screens.addproduct.AddProductScreen
+import com.alshawwa.pharmacies.ui.screens.addproduct.AddProductViewModel
+import com.alshawwa.pharmacies.ui.screens.complaints.ComplaintsSuggestionsScreen
+import com.alshawwa.pharmacies.ui.screens.consultation.ConsultationScreen
+import com.alshawwa.pharmacies.ui.screens.home.HomeScreen
+import com.alshawwa.pharmacies.ui.screens.home.HomeViewModel
+import com.alshawwa.pharmacies.ui.screens.productdetail.ProductDetailScreen
+import com.alshawwa.pharmacies.ui.screens.trackorders.TrackOrdersScreen
+
+// الرسم البياني للتنقل في التطبيق
+@Composable
+fun AlShawwaNavGraph(
+    navController: NavHostController
+) {
+    NavHost(
+        navController = navController,
+        startDestination = Screen.Home.route // الشاشة الابتدائية عند تشغيل التطبيق
+    ) {
+        // شاشة الرئيسية
+        composable(route = Screen.Home.route) {
+            val viewModel: HomeViewModel = hiltViewModel()
+            HomeScreen(
+                viewModel = viewModel,
+                onNavigateToAddProduct = {
+                    navController.navigate(Screen.AddProduct.route)
+                },
+                onNavigateToProductDetail = { productId ->
+                    navController.navigate(Screen.ProductDetail.createRoute(productId))
+                },
+                onNavigateToConsultation = {
+                    navController.navigate(Screen.Consultation.route)
+                },
+                onNavigateToTrackOrders = {
+                    navController.navigate(Screen.TrackOrders.route)
+                },
+                onNavigateToComplaints = {
+                    navController.navigate(Screen.ComplaintsSuggestions.route)
+                }
+            )
+        }
+
+        // شاشة إضافة منتج جديد
+        composable(route = Screen.AddProduct.route) {
+            val viewModel: AddProductViewModel = hiltViewModel()
+            AddProductScreen(
+                viewModel = viewModel,
+                onBackClick = { navController.popBackStack() }
+            )
+        }
+
+        // شاشة تفاصيل المنتج
+        composable(
+            route = Screen.ProductDetail.route,
+            arguments = listOf(navArgument(Constants.PRODUCTIDARG) {
+                type = NavType.IntType
+                defaultValue = -1 // قيمة افتراضية إذا لم يتم توفير معرف
+            })
+        ) { backStackEntry ->
+            val productId = backStackEntry.arguments?.getInt(Constants.PRODUCTIDARG) ?: -1
+            val viewModel: HomeViewModel = hiltViewModel() // يمكن استخدام HomeViewModel لجلب تفاصيل المنتج
+            ProductDetailScreen(
+                productId = productId,
+                viewModel = viewModel,
+                onBackClick = { navController.popBackStack() }
+            )
+        }
+
+        // شاشة الاستشارات الدوائية
+        composable(route = Screen.Consultation.route) {
+            ConsultationScreen(
+                onBackClick = { navController.popBackStack() }
+            )
+        }
+
+        // شاشة متابعة الطلبات
+        composable(route = Screen.TrackOrders.route) {
+            TrackOrdersScreen(
+                onBackClick = { navController.popBackStack() }
+            )
+        }
+
+        // شاشة الشكاوى والاقتراحات
+        composable(route = Screen.ComplaintsSuggestions.route) {
+            ComplaintsSuggestionsScreen(
+                onBackClick = { navController.popBackStack() }
+            )
+        }
+    }
+}
+app/src/main/java/com/alshawwa/pharmacies/ui/screens/addproduct/AddProductScreen.kt
+package com.alshawwa.pharmacies.ui.screens.addproduct
+
+import android.widget.Toast
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.unit.dp
+import com.alshawwa.pharmacies.data.util.Constants
+import com.alshawwa.pharmacies.util.UiEvent
+
+// شاشة إضافة منتج جديد
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AddProductScreen(
+    viewModel: AddProductViewModel,
+    onBackClick: () -> Unit
+) {
+    val context = LocalContext.current
+    val productName by viewModel.productName.collectAsState()
+    val productDescription by viewModel.productDescription.collectAsState()
+    val productCategory by viewModel.productCategory.collectAsState()
+    val imageUrl by viewModel.imageUrl.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+
+    var expanded by remember { mutableStateOf(false) }
+
+    // معالجة الأحداث من ViewModel (مثل رسائل التوست أو التنقل)
+    LaunchedEffect(Unit) {
+        viewModel.uiEvent.collect { event ->
+            when (event) {
+                is UiEvent.ShowSnackbar -> {
+                    Toast.makeText(context, event.message, Toast.LENGTH_LONG).show()
+                }
+                is UiEvent.NavigateBack -> onBackClick()
+                else -> {}
+            }
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("إضافة منتج جديد") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                ),
+                navigationIcon = {
+                    IconButton(onClick = onBackClick) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "العودة"
+                        )
+                    }
+                }
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // حقل اسم المنتج
+            OutlinedTextField(
+                value = productName,
+                onValueChange = { viewModel.onProductNameChange(it) },
+                label = { Text("اسم المنتج") },
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words)
+            )
+
+            // حقل وصف المنتج
+            OutlinedTextField(
+                value = productDescription,
+                onValueChange = { viewModel.onProductDescriptionChange(it) },
+                label = { Text("وصف المنتج (اختياري)") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            // قائمة منسدلة لاختيار الفئة
+            ExposedDropdownMenuBox(
+                expanded = expanded,
+                onExpandedChange = { expanded = !expanded },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                OutlinedTextField(
+                    value = productCategory,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("فئة المنتج") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                    modifier = Modifier
+                        .menuAnchor()
+                        .fillMaxWidth()
+                )
+
+                ExposedDropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false }
+                ) {
+                    Constants.PRODUCT_CATEGORIES.forEach { category ->
+                        DropdownMenuItem(
+                            text = { Text(category) },
+                            onClick = {
+                                viewModel.onProductCategoryChange(category)
+                                expanded = false
+                            }
+                        )
+                    }
+                }
+            }
+
+            // حقل رابط الصورة (اختياري)
+            OutlinedTextField(
+                value = imageUrl ?: "",
+                onValueChange = { viewModel.onImageUrlChange(it) },
+                label = { Text("رابط الصورة (اختياري)") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            // زر إضافة المنتج
+            Button(
+                onClick = { viewModel.onSaveProductClick() },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = productName.isNotBlank() && productCategory.isNotBlank() && !isLoading
+            ) {
+                Text(if (isLoading) "جاري الإضافة..." else "إضافة المنتج")
+            }
+        }
+    }
+}
+app/src/main/java/com/alshawwa/pharmacies/ui/screens/addproduct/AddProductViewModel.kt
+package com.alshawwa.pharmacies.ui.screens.addproduct
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.alshawwa.pharmacies.data.repository.ProductRepository
+import com.alshawwa.pharmacies.data.util.Constants
+import com.alshawwa.pharmacies.domain.model.Product
+import com.alshawwa.pharmacies.util.UiEvent
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+// ViewModel لشاشة إضافة منتج جديد
+@HiltViewModel
+class AddProductViewModel @Inject constructor(
+    private val repository: ProductRepository
+) : ViewModel() {
+
+    // حالة اسم المنتج
+    private val _productName = MutableStateFlow("")
+    val productName = _productName.asStateFlow()
+
+    // حالة وصف المنتج
+    private val _productDescription = MutableStateFlow("")
+    val productDescription = _productDescription.asStateFlow()
+
+    // حالة فئة المنتج
+    private val productCategory = MutableStateFlow(Constants.PRODUCTCATEGORIES.first()) // الفئة الافتراضية
+    val productCategory = _productCategory.asStateFlow()
+
+    // حالة رابط الصورة
+    private val _imageUrl = MutableStateFlow(null)
+    val imageUrl = _imageUrl.asStateFlow()
+
+    // حالة التحميل (لزر الإضافة)
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading = _isLoading.asStateFlow()
+
+    // قناة للأحداث التي يجب إرسالها إلى الواجهة (مثل رسائل التوست أو التنقل)
+    private val _uiEvent = Channel()
+    val uiEvent = _uiEvent.receiveAsFlow()
+
+    // تحديث اسم المنتج
+    fun onProductNameChange(name: String) {
+        _productName.value = name
+    }
+
+    // تحديث وصف المنتج
+    fun onProductDescriptionChange(description: String) {
+        _productDescription.value = description
+    }
+
+    // تحديث فئة المنتج
+    fun onProductCategoryChange(category: String) {
+        _productCategory.value = category
+    }
+
+    // تحديث رابط الصورة
+    fun onImageUrlChange(url: String) {
+        _imageUrl.value = if (url.isNotBlank()) url else null
+    }
+
+    // معالجة النقر على زر حفظ المنتج
+    fun onSaveProductClick() {
+        if (productName.value.isBlank() || productCategory.value.isBlank()) {
+            sendUiEvent(UiEvent.ShowSnackbar("يرجى ملء اسم المنتج واختيار الفئة."))
+            return
+        }
+
+        _isLoading.value = true
+        viewModelScope.launch {
+            val newProduct = Product(
+                name = productName.value.trim(),
+                description = productDescription.value.trim(),
+                category = productCategory.value,
+                imageUrl = imageUrl.value
+            )
+            repository.addProduct(newProduct)
+                .onSuccess {
+                    sendUiEvent(UiEvent.ShowSnackbar("تم إضافة المنتج بنجاح!"))
+                    sendUiEvent(UiEvent.NavigateBack) // العودة بعد الإضافة
+                }
+                .onFailure {
+                    sendUiEvent(UiEvent.ShowSnackbar("فشل إضافة المنتج: ${it.localizedMessage}"))
+                }
+            _isLoading.value = false
+        }
+    }
+
+    // إرسال حدث للواجهة
+    private fun sendUiEvent(event: UiEvent) {
+        viewModelScope.launch {
+            _uiEvent.send(event)
+        }
+    }
+}
+app/src/main/java/com/alshawwa/pharmacies/ui/screens/complaints/ComplaintsSuggestionsScreen.kt
+package com.alshawwa.pharmacies.ui.screens.complaints
+
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import com.alshawwa.pharmacies.data.util.Constants
+import com.alshawwa.pharmacies.ui.screens.common.ContactCard
+
+// شاشة الشكاوى والاقتراحات
+@Composable
+fun ComplaintsSuggestionsScreen(
+    onBackClick: () -> Unit
+) {
+    val context = LocalContext.current
+    var subject by remember { mutableStateOf("") }
+    var message by remember { mutableStateOf("") }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("الشكاوى والاقتراحات") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                ),
+                navigationIcon = {
+                    IconButton(onClick = onBackClick) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "العودة"
+                        )
+                    }
+                }
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = "نحن هنا للاستماع إلى ملاحظاتك ومساعدتك في حل أي مشكلات قد تواجهها.",
+                style = MaterialTheme.typography.bodyLarge
+            )
+
+            // حقل الموضوع
+            OutlinedTextField(
+                value = subject,
+                onValueChange = { subject = it },
+                label = { Text("الموضوع") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            // حقل الرسالة/التفاصيل
+            OutlinedTextField(
+                value = message,
+                onValueChange = { message = it },
+                label = { Text("رسالتك أو اقتراحك") },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 5
+            )
+
+            // زر إرسال
+            Button(
+                onClick = {
+                    // فتح تطبيق البريد الإلكتروني لإرسال الشكوى/الاقتراح
+                    val emailIntent = Intent(Intent.ACTION_SENDTO).apply {
+                        data = Uri.parse("mailto:") // Only email apps should handle this
+                        putExtra(Intent.EXTRA_EMAIL, arrayOf("info@alshawwa-pharmacies.com")) // بريد إلكتروني افتراضي
+                        putExtra(Intent.EXTRA_SUBJECT, "شكوى/اقتراح: $subject")
+                        putExtra(Intent.EXTRA_TEXT, message)
+                    }
+                    if (emailIntent.resolveActivity(context.packageManager) != null) {
+                        context.startActivity(emailIntent)
+                    } else {
+                        // يمكن إظهار رسالة توست إذا لم يكن هناك تطبيق بريد إلكتروني
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("إرسال شكوى/اقتراح")
+            }
+
+            // قسم التواصل السريع
+            Text(
+                text = "أو تواصل معنا مباشرة:",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(top = 16.dp)
+            )
+            ContactCard(
+                phoneNumber = Constants.CUSTOMERSERVICEPHONE,
+                whatsappNumber = Constants.CUSTOMERSERVICEWHATSAPP_NUMBER,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+app/src/main/java/com/alshawwa/pharmacies/ui/screens/complaints/ComplaintsSuggestionsViewModel.kt
+package com.alshawwa.pharmacies.ui.screens.complaints
+
+import androidx.lifecycle.ViewModel
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
+
+// ViewModel لشاشة الشكاوى والاقتراحات
+// لا يحتوي على منطق معقد حاليًا، لكنه موجود للاتساق مع نمط MVVM
+@HiltViewModel
+class ComplaintsSuggestionsViewModel @Inject constructor() : ViewModel() {
+    // يمكن إضافة منطق للتحقق من صحة الإدخال أو إرسال الشكاوى إلى خدمة backend هنا
+}
+app/src/main/java/com/alshawwa/pharmacies/ui/screens/consultation/ConsultationScreen.kt
+package com.alshawwa.pharmacies.ui.screens.consultation
+
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import com.alshawwa.pharmacies.data.util.Constants
+import com.alshawwa.pharmacies.ui.screens.common.ContactCard
+
+// شاشة الاستشارات الدوائية
+@Composable
+fun ConsultationScreen(
+    onBackClick: () -> Unit
+) {
+    val context = LocalContext.current
+    var userName by remember { mutableStateOf("") }
+    var userPhone by remember { mutableStateOf("") }
+    var consultationDetails by remember { mutableStateOf("") }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("الاستشارات الدوائية") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                ),
+                navigationIcon = {
+                    IconButton(onClick = onBackClick) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "العودة"
+                        )
+                    }
+                }
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = "يمكنك طلب استشارة دوائية من صيادلتنا المتخصصين. يرجى ملء التفاصيل وسنتواصل معك قريباً.",
+                style = MaterialTheme.typography.bodyLarge
+            )
+
+            // حقل اسم المستخدم
+            OutlinedTextField(
+                value = userName,
+                onValueChange = { userName = it },
+                label = { Text("اسمك") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            // حقل رقم الهاتف
+            OutlinedTextField(
+                value = userPhone,
+                onValueChange = { userPhone = it },
+                label = { Text("رقم هاتفك") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            // حقل تفاصيل الاستشارة
+            OutlinedTextField(
+                value = consultationDetails,
+                onValueChange = { consultationDetails = it },
+                label = { Text("تفاصيل الاستشارة أو سؤالك") },
+                modifier = Modifier.fillMaxWidth(),
+                minLines = 5
+            )
+
+            // زر إرسال طلب الاستشارة
+            Button(
+                onClick = {
+                    // يمكن هنا إرسال البيانات إلى backend أو فتح تطبيق واتساب مباشرة
+                    val whatsappMessage = "أهلاً، أود طلب استشارة دوائية.\nالاسم: $userName\nرقم الهاتف: $userPhone\nالسؤال: $consultationDetails"
+                    val whatsappUri = Uri.parse("https://api.whatsapp.com/send?phone=${Constants.CUSTOMERSERVICEWHATSAPP_NUMBER}&text=${Uri.encode(whatsappMessage)}")
+                    val whatsappIntent = Intent(Intent.ACTION_VIEW, whatsappUri)
+                    try {
+                        context.startActivity(whatsappIntent)
+                    } catch (e: Exception) {
+                        // يمكن إظهار رسالة توست إذا لم يكن واتساب مثبتاً
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = userName.isNotBlank() && userPhone.isNotBlank() && consultationDetails.isNotBlank()
+            ) {
+                Text("طلب استشارة عبر واتساب")
+            }
+
+            // قسم التواصل السريع
+            Text(
+                text = "أو تواصل معنا مباشرة:",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(top = 16.dp)
+            )
+            ContactCard(
+                phoneNumber = Constants.CUSTOMERSERVICEPHONE,
+                whatsappNumber = Constants.CUSTOMERSERVICEWHATSAPP_NUMBER,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+app/src/main/java/com/alshawwa/pharmacies/ui/screens/consultation/ConsultationViewModel.kt
+package com.alshawwa.pharmacies.ui.screens.consultation
+
+import androidx.lifecycle.ViewModel
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
+
+// ViewModel لشاشة الاستشارات الدوائية
+// لا يحتوي على منطق معقد حاليًا، لكنه موجود للاتساق مع نمط MVVM
+@HiltViewModel
+class ConsultationViewModel @Inject constructor() : ViewModel() {
+    // يمكن إضافة منطق للتحقق من صحة الإدخال أو إرسال طلبات الاستشارة إلى خدمة backend هنا
+}
+app/src/main/java/com/alshawwa/pharmacies/ui/screens/home/HomeScreen.kt
+package com.alshawwa.pharmacies.ui.screens.home
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.MedicalServices
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.Modal### app/src/main/java/com/alshawwa/pharmacies/ui/screens/home/HomeScreen.kt
+kotlin
+package com.alshawwa.pharmacies.ui.screens.home
+
+import android.widget.Toast
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
+import androidx.compose.material.icons.automirrored.filled.Help
+import androidx.compose.material.icons.automirrored.filled.ListAlt
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.MedicalServices
+import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.NavigationDrawerItem
+import androidx.compose.material3.NavigationDrawerItemDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.rememberDrawerState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import com.alshawwa.pharmacies.data.util.Constants
+import com.alshawwa.pharmacies.domain.model.Product
+import com.alshawwa.pharmacies.util.UiEvent
+import kotlinx.coroutines.launch
+
+// شاشة الرئيسية للتطبيق، تعرض المنتجات وتوفر خيارات التنقل
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun HomeScreen(
+    viewModel: HomeViewModel,
+    onNavigateToAddProduct: () -> Unit,
+    onNavigateToProductDetail: (Int) -> Unit,
+    onNavigateToConsultation: () -> Unit,
+    onNavigateToTrackOrders: () -> Unit,
+    onNavigateToComplaints: () -> Unit
+) {
+    val context = LocalContext.current
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // جمع حالات ViewModel
+    val products by viewModel.products.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val selectedCategory by viewModel.selectedCategory.collectAsState()
+    val categoriesWithAll = remember { listOf("الكل") + Constants.PRODUCT_CATEGORIES }
+
+    // معالجة الأحداث من ViewModel (مثل رسائل التوست)
+    LaunchedEffect(Unit) {
+        viewModel.uiEvent.collect { event ->
+            when (event) {
+                is UiEvent.ShowSnackbar -> {
+                    snackbarHostState.showSnackbar(event.message)
+                }
+                else -> {}
+            }
+        }
+    }
+
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ModalDrawerSheet {
+                // رأس الدرج
+                ListItem(
+                    headlineContent = { Text("صيدليات الشوا", style = MaterialTheme.typography.titleLarge) },
+                    supportingContent = { Text("رفيقك الصحي") },
+                    leadingContent = {
+                        Icon(
+                            Icons.Filled.MedicalServices,
+                            contentDescription = "شعار التطبيق",
+                            modifier = Modifier.size(48.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                )
+                Spacer(Modifier.height(16.dp))
+
+                // عناصر التنقل في الدرج
+                NavigationDrawerItem(
+                    label = { Text("الرئيسية") },
+                    icon = { Icon(Icons.Filled.Home, contentDescription = null) },
+                    selected = selectedCategory == "الكل", // تعتبر الرئيسية هي عرض كل المنتجات
+                    onClick = {
+                        viewModel.onCategorySelected("الكل")
+                        scope.launch { drawerState.close() }
+                    },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                )
+                NavigationDrawerItem(
+                    label = { Text("إضافة منتج جديد") },
+                    icon = { Icon(Icons.Filled.Add, contentDescription = null) },
+                    selected = false,
+                    onClick = {
+                        onNavigateToAddProduct()
+                        scope.launch { drawerState.close() }
+                    },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                )
+                NavigationDrawerItem(
+                    label = { Text("استشارات دوائية") },
+                    icon = { Icon(Icons.AutoMirrored.Filled.Help, contentDescription = null) },
+                    selected = false,
+                    onClick = {
+                        onNavigateToConsultation()
+                        scope.launch { drawerState.close() }
+                    },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                )
+                NavigationDrawerItem(
+                    label = { Text("متابعة الطلبات") },
+                    icon = { Icon(Icons.AutoMirrored.Filled.ListAlt, contentDescription = null) },
+                    selected = false,
+                    onClick = {
+                        onNavigateToTrackOrders()
+                        scope.launch { drawerState.close() }
+                    },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                )
+                NavigationDrawerItem(
+                    label = { Text("الشكاوى والاقتراحات") },
+                    icon = { Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null) },
+                    selected = false,
+                    onClick = {
+                        onNavigateToComplaints()
+                        scope.launch { drawerState.close() }
+                    },
+                    modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                )
+            }
+        }
+    ) {
+        Scaffold(
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+            topBar = {
+                TopAppBar(
+                    title = { Text("صيدليات الشوا") },
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                    ),
+                    navigationIcon = {
+                        IconButton(onClick = {
+                            scope.launch { drawerState.open() }
+                        }) {
+                            Icon(
+                                imageVector = Icons.Filled.Menu,
+                                contentDescription = "فتح القائمة"
+                            )
+                        }
+                    }
+                )
+            },
+            floatingActionButton = {
+                ExtendedFloatingActionButton(
+                    onClick = onNavigateToAddProduct,
+                    icon = { Icon(Icons.Filled.Add, contentDescription = "إضافة منتج") },
+                    text = { Text("إضافة منتج") },
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                )
+            }
+        ) { paddingValues ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+            ) {
+                // شريط فلاتر الفئات
+                LazyRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp)
+                ) {
+                    items(categoriesWithAll) { category ->
+                        FilterChip(
+                            selected = selectedCategory == category,
+                            onClick = { viewModel.onCategorySelected(category) },
+                            label = { Text(category) },
+                            leadingIcon = if (selectedCategory == category) {
+                                { Icon(Icons.Filled.Category, contentDescription = null, modifier = Modifier.size(FilterChipDefaults.IconSize)) }
+                            } else null,
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                                selectedLeadingIconColor = MaterialTheme.colorScheme.onPrimary
+                            ),
+                            border = if (selectedCategory == category) null else FilterChipDefaults.filterChipBorder(
+                                borderColor = MaterialTheme.colorScheme.outline
+                            )
+                        )
+                    }
+                }
+
+                // عرض قائمة المنتجات أو مؤشر التحميل/رسالة الخطأ
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    if (isLoading) {
+                        CircularProgressIndicator()
+                    } else if (products.isEmpty()) {
+                        Text("لا توجد منتجات لعرضها في هذه الفئة.", style = MaterialTheme.typography.bodyLarge)
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            items(products, key = { it.id }) { product ->
+                                ProductCard(
+                                    product = product,
+                                    onClick = { onNavigateToProductDetail(product.id) }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// بطاقة عرض المنتج في القائمة
+@Composable
+fun ProductCard(
+    product: Product,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Card(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp)
+        ) {
+            // صورة المنتج
+            if (!product.imageUrl.isNullOrEmpty()) {
+                AsyncImage(
+                    model = product.imageUrl,
+                    contentDescription = product.name,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp),
+                    contentScale = ContentScale.Crop
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            } else {
+                // عرض أيقونة افتراضية إذا لم تتوفر صورة
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.MedicalServices,
+                        contentDescription = "لا توجد صورة",
+                        modifier = Modifier.size(96.dp),
+                        tint = MaterialTheme.colorScheme.outline
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            // اسم المنتج
+            Text(
+                text = product.name,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // فئة المنتج
+            Text(
+                text = product.category,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // وصف المنتج (جزء منه)
+            if (product.description.isNotBlank()) {
+                Text(
+                    text = product.description,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+app/src/main/java/com/alshawwa/pharmacies/ui/screens/home/HomeViewModel.kt
+kotlin
+package com.alshawwa.pharmacies.ui.screens.home
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.alshawwa.pharmacies.data.repository.ProductRepository
+import com.alshawwa.pharmacies.domain.model.Product
+import com.alshawwa.pharmacies.util.UiEvent
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+// ViewModel للشاشة الرئيسية، يدير حالة عرض المنتجات
+@HiltViewModel
+class HomeViewModel @Inject constructor(
+    private val repository: ProductRepository
+) : ViewModel() {
+
+    // الفئة المختارة حاليًا لعرض المنتجات
+    private val _selectedCategory = MutableStateFlow("الكل")
+    val selectedCategory = _selectedCategory.asStateFlow()
+
+    // قائمة المنتجات التي سيتم عرضها، يتم تحديثها بناءً على الفئة المختارة
+    private val _products = MutableStateFlow>(emptyList())
+    val products = _products.asStateFlow()
+
+    // حالة التحميل
+    private val _isLoading = MutableStateFlow(false)
+    val isLoading = _isLoading.asStateFlow()
+
+    // قناة للأحداث التي يجب إرسالها إلى الواجهة (مثل رسائل التوست)
+    private val _uiEvent = Channel()
+    val uiEvent = _uiEvent.receiveAsFlow()
+
+    init {
+        // يتم تفعيل جمع المنتجات عند تهيئة ViewModel
+        collectProducts()
+    }
+
+    // دالة لجمع المنتجات من المستودع بناءً على الفئة المختارة
+    private fun collectProducts() {
+        viewModelScope.launch {
+            _selectedCategory.flatMapLatest { category ->
+                _isLoading.value = true
+                if (category == "الكل") {
+                    repository.getAllProducts()
+                } else {
+                    repository.getProductsByCategory(category)
+                }
+            }
+            .catch { e ->
+                _isLoading.value = false
+                sendUiEvent(UiEvent.ShowSnackbar("خطأ في تحميل المنتجات: ${e.localizedMessage}"))
+            }
+            .collectLatest { productList ->
+                _products.value = productList
+                _isLoading.value = false
+            }
+        }
+    }
+
+    // عند اختيار فئة جديدة
+    fun onCategorySelected(category: String) {
+        _selectedCategory.value = category
+    }
+
+    // إرسال حدث للواجهة
+    private fun sendUiEvent(event: UiEvent) {
+        viewModelScope.launch {
+            _uiEvent.send(event)
+        }
+    }
+}
+app/src/main/java/com/alshawwa/pharmacies/ui/screens/productdetail/ProductDetailScreen.kt
+kotlin
+package com.alshawwa.pharmacies.ui.screens.productdetail
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.MedicalServices
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import coil.compose.AsyncImage
+import com.alshawwa.pharmacies.ui.screens.home.HomeViewModel // استخدام HomeViewModel لجلب تفاصيل المنتج
+
+// شاشة تفاصيل المنتج
+@Composable
+fun ProductDetailScreen(
+    productId: Int,
+    viewModel: HomeViewModel, // يمكن استخدام HomeViewModel لجلب تفاصيل المنتج بناءً على معرفه
+    onBackClick: () -> Unit
+) {
+    // جلب المنتج المحدد من ViewModel
+    val product by viewModel.products.collectAsState().value.firstOrNull { it.id == productId }?.let {
+        // إذا كان المنتج موجودًا بالفعل في قائمة المنتجات التي تم جلبها
+        remember { androidx.compose.runtime.mutableStateOf(it) }
+    } ?: run {
+        // إذا لم يكن المنتج موجودًا في قائمة المنتجات الحالية، يمكننا جلب تفاصيله بشكل منفصل
+        // أو إظهار مؤشر تحميل ورسالة خطأ إذا لم يتم العثور عليه.
+        // في هذا المثال، سنفترض أن HomeViewModel سيقوم بتحميل جميع المنتجات أو المنتجات حسب الفئة
+        // لذا يجب أن يكون المنتج متاحًا إذا تم تمرير ID صحيح.
+        // للتأكد، يمكننا إضافة دالة getProductById في HomeViewModel وجلبها هنا.
+        // نظرًا لأن HomeViewModel يدير قائمة المنتجات، سنعتمد على وجود المنتج فيها.
+        remember { androidx.compose.runtime.mutableStateOf(null) } // افتراضياً لا يوجد منتج
+    }
+
+    // لتجنب جلب المنتج مرة أخرى إذا كان موجودًا في HomeViewModel
+    // ولكن لضمان جلب تفاصيله في حال الوصول المباشر أو إعادة إنشاء الشاشة
+    // يمكننا استخدام ViewModel مخصص لـ ProductDetailScreen أو إضافة منطق جلب ID في HomeViewModel.
+    // لتبسيط المثال، سنعتمد على أن HomeViewModel قد قام بتحميل المنتجات.
+    LaunchedEffect(productId) {
+        // في حالة كان productId -1 أو المنتج غير موجود، يمكن إظهار خطأ
+        if (productId == -1) {
+            // إظهار رسالة خطأ أو العودة للشاشة السابقة
+            viewModel.sendUiEvent(com.alshawwa.pharmacies.util.UiEvent.ShowSnackbar("معرف المنتج غير صالح."))
+            onBackClick()
+        }
+        // لا نحتاج لجلب المنتج هنا بشكل صريح إذا كان HomeViewModel يدير بالفعل قائمة المنتجات
+        // ولكن إذا كان هذا ViewModel مخصصًا، فسيتم استدعاء viewModel.loadProduct(productId)
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(product?.name ?: "تفاصيل المنتج") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                ),
+                navigationIcon = {
+                    IconButton(onClick = onBackClick) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "العودة"
+                        )
+                    }
+                }
+            )
+        }
+    ) { paddingValues ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .verticalScroll(rememberScrollState()),
+            contentAlignment = Alignment.Center
+        ) {
+            if (product == null) {
+                // يمكن عرض مؤشر تحميل أو رسالة "المنتج غير موجود"
+                CircularProgressIndicator() // أو Text("المنتج غير موجود")
+            } else {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // صورة المنتج
+                    if (!product!!.imageUrl.isNullOrEmpty()) {
+                        AsyncImage(
+                            model = product!!.imageUrl,
+                            contentDescription = product!!.name,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(250.dp),
+                            contentScale = ContentScale.Fit // Fit لعرض الصورة كاملة
+                        )
+                    } else {
+                        // عرض أيقونة افتراضية إذا لم تتوفر صورة
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(250.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.MedicalServices,
+                                contentDescription = "لا توجد صورة",
+                                modifier = Modifier.size(128.dp),
+                                tint = MaterialTheme.colorScheme.outline
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // اسم المنتج
+                    Text(
+                        text = product!!.name,
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+
+                    // فئة المنتج
+                    Text(
+                        text = "الفئة: ${product!!.category}",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    // وصف المنتج
+                    if (product!!.description.isNotBlank()) {
+                        Text(
+                            text = product!!.description,
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    } else {
+                        Text(
+                            text = "لا يتوفر وصف لهذا المنتج.",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                            modifier = Modifier.padding(top = 8.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+app/src/main/java/com/alshawwa/pharmacies/ui/screens/productdetail/ProductDetailViewModel.kt
+kotlin
+package com.alshawwa.pharmacies.ui.screens.productdetail
+
+import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.alshawwa.pharmacies.data.repository.ProductRepository
+import com.alshawwa.pharmacies.data.util.Constants
+import com.alshawwa.pharmacies.domain.model.Product
+import com.alshawwa.pharmacies.util.UiEvent
+import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+
+// ViewModel لشاشة تفاصيل المنتج
+@HiltViewModel
+class ProductDetailViewModel @Inject constructor(
+    private val repository: ProductRepository,
+    savedStateHandle: SavedStateHandle // للحصول على المعرفات من التنقل
+) : ViewModel() {
+
+    // المنتج الذي يتم عرضه
+    private val _product = MutableStateFlow(null)
+    val product = _product.asStateFlow()
+
+    // قناة للأحداث التي يجب إرسالها إلى الواجهة
+    private val _uiEvent = Channel()
+    val uiEvent = _uiEvent.receiveAsFlow()
+
+    init {
+        // جلب معرف المنتج من SavedStateHandle
+        val productId = savedStateHandle.get(Constants.PRODUCTIDARG)
+        productId?.let { id ->
+            if (id != -1) { // التأكد من أن المعرف صالح
+                loadProduct(id)
+            } else {
+                sendUiEvent(UiEvent.ShowSnackbar("معرف المنتج غير صالح."))
+            }
+        } ?: sendUiEvent(UiEvent.ShowSnackbar("لم يتم توفير معرف المنتج."))
+    }
+
+    // دالة لجلب تفاصيل المنتج من المستودع
+    private fun loadProduct(productId: Int) {
+        viewModelScope.launch {
+            try {
+                _product.value = repository.getProductById(productId)
+                if (_product.value == null) {
+                    sendUiEvent(UiEvent.ShowSnackbar("المنتج غير موجود."))
+                }
+            } catch (e: Exception) {
+                sendUiEvent(UiEvent.ShowSnackbar("فشل تحميل تفاصيل المنتج: ${e.localizedMessage}"))
+            }
+        }
+    }
+
+    // إرسال حدث للواجهة
+    private fun sendUiEvent(event: UiEvent) {
+        viewModelScope.launch {
+            _uiEvent.send(event)
+        }
+    }
+}
+app/src/main/java/com/alshawwa/pharmacies/ui/screens/trackorders/TrackOrdersScreen.kt
+kotlin
+package com.alshawwa.pharmacies.ui.screens.trackorders
+
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import com.alshawwa.pharmacies.data.util.Constants
+import com.alshawwa.pharmacies.ui.screens.common.ContactCard
+
+// شاشة متابعة الطلبات
+@Composable
+fun TrackOrdersScreen(
+    onBackClick: () -> Unit
+) {
+    val context = LocalContext.current
+    var orderNumber by remember { mutableStateOf("") }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("متابعة الطلبات") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                ),
+                navigationIcon = {
+                    IconButton(onClick = onBackClick) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "العودة"
+                        )
+                    }
+                }
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = "يمكنك متابعة حالة طلباتك عن طريق إدخال رقم الطلب أو التواصل معنا مباشرة.",
+                style = MaterialTheme.typography.bodyLarge
+            )
+
+            // حقل رقم الطلب
+            OutlinedTextField(
+                value = orderNumber,
+                onValueChange = { orderNumber = it },
+                label = { Text("رقم الطلب") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            // زر متابعة الطلب (يمكن أن يكون وهميًا أو يفتح صفحة ويب### app/src/main/java/com/alshawwa/pharmacies/ui/screens/trackorders/TrackOrdersScreen.kt
+package com.alshawwa.pharmacies.ui.screens.trackorders
+
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import com.alshawwa.pharmacies.data.util.Constants
+import com.alshawwa.pharmacies.ui.screens.common.ContactCard
+
+// شاشة متابعة الطلبات
+@Composable
+fun TrackOrdersScreen(
+    onBackClick: () -> Unit
+) {
+    val context = LocalContext.current
+    var orderNumber by remember { mutableStateOf("") }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("متابعة الطلبات") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                ),
+                navigationIcon = {
+                    IconButton(onClick = onBackClick) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "العودة"
+                        )
+                    }
+                }
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(16.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = "يمكنك متابعة حالة طلباتك عن طريق إدخال رقم الطلب أو التواصل معنا مباشرة.",
+                style = MaterialTheme.typography.bodyLarge
+            )
+
+            // حقل رقم الطلب
+            OutlinedTextField(
+                value = orderNumber,
+                onValueChange = { orderNumber = it },
+                label = { Text("رقم الطلب") },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            // زر متابعة الطلب (يمكن أن يكون وهميًا أو يفتح صفحة ويب للمتابعة)
+            // في هذا المثال، سنظهر رسالة توست بسيطة ونشجع على التواصل
+            Button(
+                onClick = {
+                    if (orderNumber.isNotBlank()) {
+                        Toast.makeText(context, "جاري البحث عن الطلب رقم: $orderNumber. يرجى التواصل معنا للمزيد من التفاصيل.", Toast.LENGTH_LONG).show()
+                        // هنا يمكن إضافة منطق حقيقي للتواصل مع API backend لجلب حالة الطلب
+                        // أو فتح رابط خارجي لصفحة تتبع الطلبات إذا كانت متوفرة.
+                    } else {
+                        Toast.makeText(context, "يرجى إدخال رقم الطلب.", Toast.LENGTH_SHORT).show()
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("متابعة الطلب")
+            }
+
+            // قسم التواصل السريع
+            Text(
+                text = "أو تواصل معنا مباشرة للاستفسار عن طلبك:",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(top = 16.dp)
+            )
+            ContactCard(
+                phoneNumber = Constants.CUSTOMERSERVICEPHONE,
+                whatsappNumber = Constants.CUSTOMERSERVICEWHATSAPP_NUMBER,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+    }
+}
+app/src/main/java/com/alshawwa/pharmacies/ui/screens/trackorders/TrackOrdersViewModel.kt
+package com.alshawwa.pharmacies.ui.screens.trackorders
+
+import androidx.lifecycle.ViewModel
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
+
+// ViewModel لشاشة متابعة الطلبات
+// لا يحتوي على منطق معقد حاليًا، لكنه موجود للاتساق مع نمط MVVM
+@HiltViewModel
+class TrackOrdersViewModel @Inject constructor() : ViewModel() {
+    // يمكن إضافة منطق لجلب حالة الطلب من backend هنا
+}
+app/src/main/java/com/alshawwa/pharmacies/ui/screens/common/ContactCard.kt
+package com.alshawwa.pharmacies.ui.screens.common
+
+import android.content.Intent
+import android.net.Uri
+import android.widget.Toast
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.WhatsApp
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import com.alshawwa.pharmacies.data.util.Constants
+
+// بطاقة عرض معلومات الاتصال (رقم الهاتف وواتساب)
+@Composable
+fun ContactCard(
+    phoneNumber: String,
+    whatsappNumber: String,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+
+    Card(
+        modifier = modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // الاتصال الهاتفي
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        val intent = Intent(Intent.ACTION_DIAL).apply {
+                            data = Uri.parse("tel:$phoneNumber")
+                        }
+                        try {
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "فشل فتح تطبيق الهاتف.", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Call,
+                    contentDescription = "اتصل بنا",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Column {
+                    Text(
+                        text = "اتصل بخدمة العملاء",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = phoneNumber,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // التواصل عبر واتساب
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        val uri = Uri.parse("https://api.whatsapp.com/send?phone=$whatsappNumber")
+                        val intent = Intent(Intent.ACTION_VIEW, uri)
+                        try {
+                            context.startActivity(intent)
+                        } catch (e: Exception) {
+                            Toast.makeText(context, "فشل فتح تطبيق واتساب. تأكد من تثبيته.", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.WhatsApp,
+                    contentDescription = "تواصل عبر واتساب",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Column {
+                    Text(
+                        text = "تواصل عبر واتساب",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = whatsappNumber,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        }
+    }
+}
+app/src/main/java/com/alshawwa/pharmacies/ui/MainActivity.kt
+package com.alshawwa.pharmacies.ui
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.ui.Modifier
+import androidx.navigation.compose.rememberNavController
+import com.alshawwa.pharmacies.ui.navigation.AlShawwaNavGraph
+import com.alshawwa.pharmacies.ui.theme.AlShawwaPharmaciesAppTheme
+import dagger.hilt.android.AndroidEntryPoint
+
+// النشاط الرئيسي للتطبيق
+@AndroidEntryPoint
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge() // تمكين العرض من الحافة إلى الحافة
+        setContent {
+            AlShawwaPharmaciesAppTheme {
+                // سطح حاوية يستخدم ألوان الخلفية من الثيم
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    val navController = rememberNavController()
+                    AlShawwaNavGraph(navController = navController)
+                }
+            }
+        }
+    }
+}
+app/src/main/java/com/alshawwa/pharmacies/util/UiEvent.kt
+package com.alshawwa.pharmacies.util
+
+// أحداث واجهة المستخدم التي يمكن إرسالها من ViewModel إلى الواجهة
+sealed class UiEvent {
+    data class ShowSnackbar(val message: String) : UiEvent() // عرض رسالة SnackBar
+    object NavigateBack : UiEvent() // أمر للعودة إلى الشاشة السابقة
+    // يمكن إضافة المزيد من الأحداث هنا حسب الحاجة (مثل NavigateTo, ShowDialog, etc.)
+}
+app/src/main/java/com/alshawwa/pharmacies/ui/theme/Color.kt
+package com.alshawwa.pharmacies.ui.theme
+
+import androidx.compose.ui.graphics.Color
+
+// تعريف الألوان الأساسية المستخدمة في الثيم
+val Purple80 = Color(0xFFD0BCFF)
+val PurpleGrey80 = Color(0xFFCCC2DC)
+val Pink80 = Color(0xFFEFB8C8)
+
+val Purple40 = Color(0xFF6650a4)
+val PurpleGrey40 = Color(0xFF625b71)
+val Pink40 = Color(0xFF7D5260)
+
+// ألوان مخصصة لصيدليات الشوا (يمكن تعديلها لتتناسب مع هوية العلامة التجارية)
+val PrimaryColor = Color(0xFF28A745) // أخضر صيدلاني
+val OnPrimaryColor = Color(0xFFFFFFFF)
+val PrimaryContainerColor = Color(0xFFD4EDDA) // أخضر فاتح
+val OnPrimaryContainerColor = Color(0xFF155724)
+
+val SecondaryColor = Color(0xFF007BFF) // أزرق
+val OnSecondaryColor = Color(0xFFFFFFFF)
+val SecondaryContainerColor = Color(0xFFCCE5FF)
+val OnSecondaryContainerColor = Color(0xFF004085)
+
+val TertiaryColor = Color(0xFFFFC107) // أصفر/ذهبي
+val OnTertiaryColor = Color(0xFF212529)
+val TertiaryContainerColor = Color(0xFFFFF3CD)
+val OnTertiaryContainerColor = Color(0xFF856404)
+
+val ErrorColor = Color(0xFFDC3545) // أحمر للخطأ
+val OnErrorColor = Color(0xFFFFFFFF)
+val ErrorContainerColor = Color(0xFFF8D7DA)
+val OnErrorContainerColor = Color(0xFF721C24)
+
+val BackgroundColor = Color(0xFFFFFFFF)
+val OnBackgroundColor = Color(0xFF212529)
+val SurfaceColor = Color(0xFFFFFFFF)
+val OnSurfaceColor = Color(0xFF212529)
+val SurfaceVariantColor = Color(0xFFF0F0F0) // رمادي فاتح للخلفيات الثانوية
+val OnSurfaceVariantColor = Color(0xFF495057)
+val OutlineColor = Color(0xFFCED4DA)
+app/src/main/java/com/alshawwa/pharmacies/ui/theme/Theme.kt
+package com.alshawwa.pharmacies.ui.theme
+
+import android.app.Activity
+import android.os.Build
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
+
+// نظام الألوان الفاتح المخصص
+private val LightColorScheme = lightColorScheme(
+    primary = PrimaryColor,
+    onPrimary = OnPrimaryColor,
+    primaryContainer = PrimaryContainerColor,
+    onPrimaryContainer = OnPrimaryContainerColor,
+    secondary = SecondaryColor,
+    onSecondary = OnSecondaryColor,
+    secondaryContainer = SecondaryContainerColor,
+    onSecondaryContainer = OnSecondaryContainerColor,
+    tertiary = TertiaryColor,
+    onTertiary = OnTertiaryColor,
+    tertiaryContainer = TertiaryContainerColor,
+    onTertiaryContainer = OnTertiaryContainerColor,
+    error = ErrorColor,
+    onError = OnErrorColor,
+    errorContainer = ErrorContainerColor,
+    onErrorContainer = OnErrorContainerColor,
+    background = BackgroundColor,
+    onBackground = OnBackgroundColor,
+    surface = SurfaceColor,
+    onSurface = OnSurfaceColor,
+    surfaceVariant = SurfaceVariantColor,
+    onSurfaceVariant = OnSurfaceVariantColor,
+    outline = OutlineColor,
+    // يمكن إضافة المزيد من الألوان هنا
+)
+
+// نظام الألوان الداكن المخصص
+private val DarkColorScheme = darkColorScheme(
+    primary = PrimaryColor, // يمكن تعديلها لألوان داكنة
+    onPrimary = OnPrimaryColor,
+    primaryContainer = PrimaryColor.copy(alpha = 0.4f), // darker primary container
+    onPrimaryContainer = OnPrimaryColor,
+    secondary = SecondaryColor,
+    onSecondary = OnSecondaryColor,
+    secondaryContainer = SecondaryColor.copy(alpha = 0.4f),
+    onSecondaryContainer = OnSecondaryColor,
+    tertiary = TertiaryColor,
+    onTertiary = OnTertiaryColor,
+    tertiaryContainer = TertiaryColor.copy(alpha = 0.4f),
+    onTertiaryContainer = OnTertiaryColor,
+    error = ErrorColor,
+    onError = OnErrorColor,
+    errorContainer = ErrorColor.copy(alpha = 0.4f),
+    onErrorContainer = OnErrorColor,
+    background = Color(0xFF121212), // خلفية داكنة جداً
+    onBackground = Color(0xFFE0E0E0),
+    surface = Color(0xFF1D1D1D),
+    onSurface = Color(0xFFE0E0E0),
+    surfaceVariant = Color(0xFF333333), // رمادي داكن للخلفيات الثانوية
+    onSurfaceVariant = Color(0xFFCCCCCC),
+    outline = Color(0xFF666666),
+    // يمكن إضافة المزيد من الألوان هنا
+)
+
+@Composable
+fun AlShawwaPharmaciesAppTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(), // تحديد ما إذا كان الثيم داكنًا بناءً على إعدادات النظام
+    // Dynamic color is available on Android 12+
+    dynamicColor: Boolean = true, // تمكين الألوان الديناميكية على Android 12+
+    content: @Composable () -> Unit
+) {
+    val colorScheme = when {
+        dynamicColor && Build.VERSION.SDKINT >= Build.VERSIONCODES.S -> {
+            val context = LocalContext.current
+            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+        }
+        darkTheme -> DarkColorScheme
+        else -> LightColorScheme
+    }
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as Activity).window
+            window.statusBarColor = colorScheme.primary.toArgb() // تعيين لون شريط الحالة
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = darkTheme
+        }
+    }
+
+    MaterialTheme(
+        colorScheme = colorScheme,
+        typography = Typography, // استخدام ملف Typography.kt
+        content = content
+    )
+}
+app/src/main/java/com/alshawwa/pharmacies/ui/theme/Type.kt
+package com.alshawwa.pharmacies.ui.theme
+
+import androidx.compose.material3.Typography
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+
+// مجموعة خطوط Material 3 الافتراضية
+val Typography = Typography(
+    bodyLarge = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.Normal,
+        fontSize = 16.sp,
+        lineHeight = 24.sp,
+        letterSpacing = 0.5.sp
+    ),
+    titleLarge = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.Normal,
+        fontSize = 22.sp,
+        lineHeight = 28.sp,
+        letterSpacing = 0.sp
+    ),
+    labelSmall = TextStyle(
+        fontFamily = FontFamily.Default,
+        fontWeight = FontWeight.Medium,
+        fontSize = 11.sp,
+        lineHeight = 16.sp,
+        letterSpacing = 0.5.sp
+    )
+    /* يمكن إضافة المزيد من أنماط الخطوط هنا لتخصيص كامل للطباعة
+    headlineLarge = TextStyle(...)
+    bodyMedium = TextStyle(...)
+    */
+)
+app/src/main/res/values/colors.xml
+<?xml version="1.0" encoding="utf-8"?>
+
+    <!-- الألوان الافتراضية، ستُستخدم ألوان Material 3 المخصصة في Compose -->
+    #FFBB86FC
+    #FF6200EE
+    #FF3700B3
+    #FF03DAC5
+    #FF018786
+    #FF000000
+    #FFFFFFFF
+
+app/src/main/res/values/strings.xml
+
+    صيدليات الشوا
+
+app/src/main/res/values/themes.xml
+<?xml version="1.0" encoding="utf-8"?>
+
+    
+
+app/src/main/res/values-night/themes.xml
+<?xml version="1.0" encoding="utf-8"?>
+
+    
+
+▶ Setup steps:
+Sync Project with Gradle Files: افتح المشروع في Android Studio. بعد نسخ جميع الملفات، انقر على "Sync Project with Gradle Files" (أيقونة الفيل الأزرق) لتنزيل جميع التبعيات.
+Unsplash API Key:
+    *   لجلب صور المنتجات من Unsplash، تحتاج إلى مفتاح API.
+    *   اذهب إلى Unsplash Developers وسجل للحصول على مفتاح Access Key.
+    *   أنشئ ملفًا جديدًا باسم local.properties في جذر مجلد المشروع (بنفس مستوى build.gradle.kts المشروع الرئيسي) وأضف السطر التالي (استبدل YOURUNSPLASHACCESS_KEY بمفتاحك):
+                UNSPLASHACCESSKEY="YOURUNSPLASHACCESS_KEY"
+        
+    *   ملاحظة الأمان: لا تلتزم (commit) ملف local.properties في نظام التحكم بالإصدار (مثل Git) لأنه يحتوي على معلومات حساسة. سيتجاهله Git تلقائيًا إذا تم إضافته إلى .gitignore.
+Permissions:
+    *   تمت إضافة أذونات INTERNET و CALL_PHONE تلقائيًا في AndroidManifest.xml. تأكد من وجودها.
+    *   عند تشغيل التطبيق على جهاز حقيقي، قد تحتاج إلى منح إذن CALL_PHONE يدويًا من إعدادات التطبيق في الجهاز إذا لم يطلبه التطبيق برمجيًا (لم يتم تطبيق ذلك في هذا المثال لتبسيط الكود، ولكن في تطبيق إنتاجي يجب التعامل مع أذونات وقت التشغيل).
+Run in Android Studio:
+    *   تأكد من تحديد جهاز محاكي أو جهاز فعلي.
+    *   انقر على زر "Run 'app'" (الأيقونة الخضراء للمثلث) لتشغيل التطبيق.
+
+سيتم تشغيل التطبيق وعرض الشاشة الرئيسية. يمكنك إضافة منتجات جديدة من خلال زر "إضافة منتج" العائم، ثم استعراضها حسب الفئة أو عرض تفاصيلها. يمكنك أيضًا الوصول إلى شاشات الاستشارات ومتابعة الطلبات والشكاوى والاقتراحات من خلال قائمة التنقل الجانبية.
